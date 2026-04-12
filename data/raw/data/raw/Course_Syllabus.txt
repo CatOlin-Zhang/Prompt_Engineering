@@ -1,0 +1,7 @@
+COMP4146 Prompt Engineering for Generative AI
+Grading Breakdown:
+Lab assignments: 20 percent
+In-class quiz: 10 percent
+Group project: 20 percent
+Final project: 50 percent
+The final project includes a group presentation and a personal report.

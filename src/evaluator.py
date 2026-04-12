@@ -3,6 +3,7 @@
 """
 评估模块
 """
+#TODO 对代表性查询进行基础评估，包括至少一项质量比较和一项词元使用比较。（主题4）
 def estimate_tokens(text):
     """粗略估算 Token 数量 (用于 Token Efficiency 分析)"""
     # 简单估算: 1个 Token 约等于 4个英文字符或 1.3个中文字符

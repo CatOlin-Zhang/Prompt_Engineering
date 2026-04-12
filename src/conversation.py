@@ -3,6 +3,7 @@
 """
 对话记忆管理
 """
+#TODO 适当时实施对话管理（历史记录处理和/或系统消息控制）
 class ConversationMemory:
     def __init__(self, max_history=3):
         # 限制历史轮次以保证 Token Efficiency

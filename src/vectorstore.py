@@ -8,6 +8,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 
+#TODO 上下文工程化流程：生成前需完成检索、片段化/分块处理及相关性优先级排序。
+#TODO RAG证据需包含至少一种词汇检索设置和一种基于嵌入式检索设置，并附简要对比分析。（主题5）
 class RAGRetriever:
     def __init__(self, chunks, embedding_model_name="all-MiniLM-L6-v2"):
         """

@@ -1,0 +1,4 @@
+Course Policies:
+Lab assignments are due every Monday 13:30.
+Late submission without prior approval will not be accepted.
+Attendance is recommended for all lab sessions.
