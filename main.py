@@ -70,7 +70,9 @@ TEST_QUERIES = [
     "When are lab assignments due?",
     "I like psychological tension but hate slow starts. Should I read The Beach?",
     "When is the final exam for my course COMP7125?",
-    "What is required if a student is absent from school"
+    "What is required if a student is absent from school",
+    "what are the different types of Academic Advisors established by the University to support students? Please list two of them.",
+    "If I lost my student card, what should I do"
 
 ]
 
