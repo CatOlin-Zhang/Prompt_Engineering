@@ -47,7 +47,7 @@ I prefer vivid setting descriptions over action-heavy writing.
 
 
 # 先运行数据生成
-ensure_data_exists()
+#ensure_data_exists()
 print("-" * 60)
 
 # --- 1. 导入模块 ---
@@ -68,7 +68,10 @@ DATA_DIR = "./data/raw"
 TEST_QUERIES = [
     "What is the grading breakdown for the final project?",
     "When are lab assignments due?",
-    "I like psychological tension but hate slow starts. Should I read The Beach?"
+    "I like psychological tension but hate slow starts. Should I read The Beach?",
+    "When is the final exam for my course COMP7125?",
+    "What is required if a student is absent from school"
+
 ]
 
 
