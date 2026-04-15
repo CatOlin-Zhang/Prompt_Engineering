@@ -46,8 +46,8 @@ class OllamaGenerator:
         # Question: What happens if I submit my lab assignment late?
         # Reasoning:
         # 1. Question asks about the consequence of late assignment submission.
-        # 2. Context [2] states that late submissions are not accepted without prior approval.
-        # 3. Formulate the answer in English and cite the source [2].
+        # 2. Course Policies states that late submissions are not accepted without prior approval.
+        # 3. Formulate the answer in the same language as the question and cite the source.
         # Answer: Late submissions are not accepted without prior approval [2].
 
         ## Context (Reference)
