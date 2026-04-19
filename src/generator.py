@@ -36,6 +36,20 @@ class OllamaGenerator:
         # Role: HKBU Study Companion
         # Goal: 根据提供的 Context 回答问题，如果 Context 中没有相关信息，请回答“根据现有资料无法回答”。
 
+        ## Examples (Few-Shot CoT)
+        # Follow the exact reasoning structure shown below. Keep the reasoning brief.
+
+        # Context: 
+        # [1] Course Policies: Lab assignments are due every Monday 13:30.
+        # [2] Late submission without prior approval will not be accepted.
+
+        # Question: What happens if I submit my lab assignment late?
+        # Reasoning:
+        # 1. Question asks about the consequence of late assignment submission.
+        # 2. Course Policies states that late submissions are not accepted without prior approval.
+        # 3. Formulate the answer in the same language as the question and cite the source.
+        # Answer: Late submissions are not accepted without prior approval [2].
+
         ## Context (Reference)
         {context}
 
@@ -43,7 +57,7 @@ class OllamaGenerator:
         {chat_history}
 
         ## Final Task
-        请用中文回答以下问题，并在回答中引用对应的 Context 编号（例如 [1]）。
+        Use the reasoning pattern shown above to answer the question.
         Question: {query}
         Answer:
         """
