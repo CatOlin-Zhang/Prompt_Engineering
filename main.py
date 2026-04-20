@@ -1,162 +1,212 @@
 """
-COMP4146 Project - Main Tester (Integrated Data Generator)
-修复了数据加载为 0 的问题，确保数据在运行前一定存在。
+主程序
+协调各个模块执行增强版RAG系统的完整流程
 """
-
-import os
 import time
-from pathlib import Path
+from config import *
+from data_loader import load_and_chunk_data
+from retriever import RAGRetriever, display_retrieved_chunks
+from memory import ConversationMemory
+from generator import OllamaGenerator
+from judge import judge
+from advanced_demo import run_advanced_demo
+import tiktoken
 
 
-# --- 0. 强制数据生成模块 (确保数据一定存在) ---
-def ensure_data_exists():
-    data_dir = Path("./data/raw")
-    data_dir.mkdir(parents=True, exist_ok=True)
+def count_tokens(text):
+    """
+    计算文本的Token数量
+    """
+    try:
+        token_encoder = tiktoken.get_encoding("cl100k_base")
+    except:
+        token_encoder = tiktoken.get_encoding("p50k_base")
 
-    # 定义必须的文件内容
-    files_content = {
-        "Course_Syllabus.txt": """
-COMP4146 Prompt Engineering for Generative AI
-Grading Breakdown:
-Lab assignments: 20 percent
-In-class quiz: 10 percent
-Group project: 20 percent
-Final project: 50 percent
-The final project includes a group presentation and a personal report.
-""",
-        "Course_Policies.txt": """
-Course Policies:
-Lab assignments are due every Monday 13:30.
-Late submission without prior approval will not be accepted.
-Attendance is recommended for all lab sessions.
-""",
-        "Book_Reviews.txt": """
-User review snippets about The Beach:
-I enjoy travel stories with moral ambiguity and flawed characters.
-I do not like slow starts, but I like high psychological tension.
-I prefer vivid setting descriptions over action-heavy writing.
-"""
-    }
-
-    # 写入文件
-    for filename, content in files_content.items():
-        file_path = data_dir / filename
-        file_path.write_text(content.strip(), encoding="utf-8")
-
-    print(f"✅ 数据检查完成：确保 {len(files_content)} 个文件已存在于 {data_dir.absolute()}")
-
-
-# 先运行数据生成
-#ensure_data_exists()
-print("-" * 60)
-
-# --- 1. 导入模块 ---
-# (注意：如果这里报错，说明环境配置还有问题)
-try:
-    from src.data_loader import load_and_chunk_data
-    from src.vectorstore import RAGRetriever
-    from src.generator import OllamaGenerator
-    from src.conversation import ConversationMemory
-    from src.evaluator import estimate_tokens
-except ImportError as e:
-    print(f"❌ 模块导入失败: {e}")
-    print("请检查 src 文件夹是否存在，以及 __init__.py 是否为空。")
-    exit()
-
-# --- 2. 全局配置 ---
-DATA_DIR = "./data/raw"
-TEST_QUERIES = [
-    "What is the grading breakdown for the final project?",
-    "When are lab assignments due?",
-    "I like psychological tension but hate slow starts. Should I read The Beach?",
-    "When is the final exam for my course COMP7125?",
-    "What is required if a student is absent from school",
-    "what are the different types of Academic Advisors established by the University to support students? Please list two of them.",
-    "If I lost my student card, what should I do"
-
-]
+    if not text:
+        return 0
+    return len(token_encoder.encode(text))
 
 
 def main():
-    print("🚀 开始初始化 HKBU Study Companion 测试...\n")
-    start_time = time.time()
+    """
+    主函数，执行增强版RAG系统的完整流程
+    """
+    print("\033[1mStarting Enhanced RAG System\033[0m")
+    print("Features: CoT Reasoning, Tool Augmentation, Advanced Evaluation")
 
-    # --- 阶段 1: 数据加载与切片 ---
-    print("[1/5] 正在加载和切分文档...")
-    try:
-        # 再次确认目录路径
-        if not os.path.exists(DATA_DIR):
-            print(f"❌ 错误: 目录 {DATA_DIR} 不存在！")
-            return
+    # 询问用户是否启用LLM评估
+    enable_judge = input("Enable LLM-based comparative evaluation? (y/n, default y): ").strip().lower()
+    if enable_judge in ['', 'y', 'yes']:
+        enable_judge = True
+        print(" LLM evaluation enabled")
+    else:
+        enable_judge = False
+        print(" LLM evaluation disabled")
 
-        chunks = load_and_chunk_data(DATA_DIR, chunk_size=300, chunk_overlap=50)
+    # 加载和分块数据
+    print("Loading and chunking data...")
+    chunks = load_and_chunk_data(DATA_DIR, CHUNK_SIZE, CHUNK_OVERLAP)
 
-        if len(chunks) == 0:
-            print(f"❌ 错误: 目录 {DATA_DIR} 是空的，或者文件读取失败。")
-            print(f"   请检查: {[f for f in os.listdir(DATA_DIR)]}")
-            return
+    # 调试信息：检查chunks的结构
+    print(f"Debug: First chunk type = {type(chunks[0]) if chunks else 'empty'}")
+    if chunks:
+        print(f"Debug: First chunk = {str(chunks[0])[:100]}...")
 
-        print(f"   成功加载 {len(chunks)} 个文本块。\n")
-    except Exception as e:
-        print(f"   数据加载失败: {e}")
-        return
+    # 初始化检索器
+    print("Initializing retriever...")
+    retriever = RAGRetriever(chunks)
 
-    # --- 阶段 2: 初始化 RAG 检索器 ---
-    print("[2/5] 正在构建向量数据库 (RAG)...")
-    try:
-        retriever = RAGRetriever(chunks=chunks)
-        print("   向量数据库构建完成。\n")
-    except Exception as e:
-        print(f"   RAG 初始化失败: {e}")
-        return
+    # 初始化生成器
+    print("Initializing generator...")
+    generator = OllamaGenerator(LOCAL_MODEL, TEMPERATURE, NUM_CTX)
 
-    # --- 阶段 3: 初始化生成器 ---
-    print("[3/5] 正在连接本地 Ollama 模型...")
-    try:
-        generator = OllamaGenerator()
-        print(f"   成功连接模型: {generator.model}\n")
-    except Exception as e:
-        print(f"   模型连接失败: {e}")
-        print("   请确保 Ollama 正在运行。")
-        return
+    # 初始化内存
+    print("Initializing memory...")
+    memory = ConversationMemory()
 
-    # --- 阶段 4: 初始化对话记忆 ---
-    memory = ConversationMemory(max_history=3)
-    print("[4/5] 对话记忆系统初始化完成。\n")
+    print(f"System Ready | Model: {LOCAL_MODEL}")
+    print("="*130)
 
-    # --- 阶段 5: 运行测试用例 ---
-    print("[5/5] 开始运行测试用例...\n")
-    print("-" * 60)
-
-    for i, query in enumerate(TEST_QUERIES, 1):
-        print(f"\n💬 测试 {i}: {query}")
-
-        input_token_est = estimate_tokens(query)
-        print(f"   📊 预估输入 Token: {input_token_est}")
-
+    # 主交互循环
+    while True:
         try:
-            # 检索
-            context, _ = retriever.get_context(query)
-            print(f"   🔍 检索成功 (上下文长度: {len(context)} 字符)")
+            user_input = input("\nUser (Type 'exit' to quit): ")
+            if user_input.lower() in ["exit", "quit"]:
+                break
+            if not user_input.strip():
+                continue
 
-            # 生成
-            final_prompt = generator.build_rag_prompt(query, context, memory.get_formatted_history())
-            print("   🤖 助手正在思考...", end="\r")
-            response = generator.generate_response(final_prompt)
-            print(f"   ✅ 助手: {response[:100]}...")  # 只打印前100个字符避免刷屏
+            print(f"\n🔍 Retrieving for question: '{user_input}'...")
 
-            # 记忆
-            memory.add_message("User", query)
-            memory.add_message("Assistant", response)
+            # --- 获取历史记忆 ---
+            chat_history = memory.get_formatted_history()
 
+            results = {}
+
+            # --- 定义三种检索策略 ---
+            strategies = [
+                ("Lexical Retrieval (TF-IDF)", lambda q: retriever.retrieve_lexical(q, top_k=TOP_K_CONTEXT)),
+                ("Neural Retrieval (Embedding)", lambda q: retriever.retrieve_embedding(q, top_k=TOP_K_CONTEXT)),
+                ("Hybrid Retrieval (Optimal)", lambda q: retriever.retrieve_hybrid(q, top_k=TOP_K_CONTEXT, alpha=HYBRID_ALPHA)),
+            ]
+
+            # 执行检索、显示块、生成响应
+            for strat_name, retrieve_fn in strategies:
+                print(f"\n--- [{strat_name}] Retrieval Details ---")
+
+                # 开始计时
+                t0 = time.perf_counter()
+                retrieved_items = retrieve_fn(user_input)
+
+                if not retrieved_items:
+                    elapsed = time.perf_counter() - t0
+                    print("No relevant chunks found.")
+                    results[strat_name] = {
+                        "response": "No relevant content",
+                        "context": "",
+                        "tokens": 0,
+                        "latency": elapsed,
+                        "strategy": strat_name
+                    }
+                    print(f"    Total Time: {elapsed:.2f}s")
+                    continue
+
+                # 1. 显示块排名和分数（使用改进的显示函数）
+                context_parts = []
+                display_retrieved_chunks(retrieved_items, max_preview_length=800)  # 显示更长的预览
+
+                for text, _ in retrieved_items:
+                    context_parts.append(str(text))  # 确保是字符串
+
+                # 2. 构建上下文并生成
+                full_context = "\n\n".join(context_parts)
+
+                # 使用增强版提示
+                prompt = generator.build_rag_prompt(user_input, full_context, chat_history)
+
+                response = generator.generate_response(prompt)
+
+                # 结束计时
+                elapsed = time.perf_counter() - t0
+
+                # 3. 计算Token
+                total_tokens = count_tokens(prompt) + count_tokens(response)
+
+                # 4. 保存结果
+                results[strat_name] = {
+                    "response": response,
+                    "context": full_context,
+                    "tokens": total_tokens,
+                    "latency": elapsed,
+                    "strategy": strat_name
+                }
+
+                print(f"\n--\033[1mGenerated Response\033[0m--")
+                print(response)  # 显示完整回复，不再截断
+                print(f"... (Consumed {total_tokens} tokens) ...\n")
+                print(f"⏱  Total Time: {elapsed:.2f}s")
+                print("-" * 130)
+
+            # 最终统计
+            print("\n \033[1mPerformance Comparison:\033[0m")
+            print(f"{'Strategy':<25} {'Tokens':<10} {'Latency(s)':<12} {'Efficiency':<12}")
+            print("-" * 65)
+
+            for name, data in results.items():
+                tokens = data.get('tokens', 0)
+                latency = data.get('latency', 0.0)
+                efficiency = tokens / latency if latency > 0 else 0
+                print(f"{name:<25} {tokens:<10} {latency:<12.2f} {efficiency:<12.2f}")
+
+            print("-" * 65)
+
+            # 更新内存
+            final_response = results.get("Hybrid Retrieval (Optimal)", {}).get("response", "No answer")
+
+            # 添加当前问答对到历史
+            memory.add_message("User", user_input)
+            memory.add_message("Assistant", final_response)
+
+            print(f"💬 Conversation saved to memory (Current length: {len(memory.history)})")
+
+            # LLM评判评估（可选）
+            if enable_judge:
+                print("\n" + "=" * 130)
+                print("  \033[1mStarting LLM Judge for comparative evaluation...\033[0m")
+                print("-" * 130)
+
+                r_lex = results.get("Lexical Retrieval (TF-IDF)", {}).get("response", "No content")
+                r_emb = results.get("Neural Retrieval (Embedding)", {}).get("response", "No content")
+                r_hyb = results.get("Hybrid Retrieval (Optimal)", {}).get("response", "No content")
+
+                try:
+                    verdict = judge(user_input, r_lex, r_emb, r_hyb, activate=True)
+                    print(f"Evaluation Result: {verdict}")
+                except Exception as e:
+                    print(f"Evaluation failed due to error: {e}")
+                    print("Continuing without evaluation...")
+            else:
+                print("\n  Skipping LLM-based evaluation as requested")
+
+        except KeyboardInterrupt:
+            print("\n Program exited by user.")
+            break
         except Exception as e:
-            print(f"   ❌ 生成失败: {e}")
-
-        print("-" * 60)
-
-    total_time = time.time() - start_time
-    print(f"\n🎉 测试完成！总耗时: {total_time:.2f} 秒")
+            print(f"\n Error occurred: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
+    print("Welcome to HKBU Study Companion RAG System!")
+    print("Choose mode:")
+    print("1. Standard RAG (default)")
+    print("2. Advanced Demo")
+
+    choice = input("Enter choice (1 or 2, default 1): ").strip()
+
+    if choice == "2":
+        run_advanced_demo()
+
+    # 总是运行主系统
     main()
